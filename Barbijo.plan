@@ -1,0 +1,127 @@
+% La idea es simple:
+% Programar una línea de producción de barbijos
+% con materiales como tela, elásticos y  empaques.
+% Las acciones en nuestro plan son las siguientes:
+%  Cortar la tela
+%        *Esto producirá telas cortadas y listas para ser selladas.
+%  Sellar la tela
+%		 *Una vez producida la tela para sellar, se sella.
+%  Colocar elásticos
+%		 *Es entonces cuando se coloca el elástico a la pieza sellada.
+%  Empacar
+%		 *Ya que tenemos el elástico colocado en nuestra pieza sellada,
+%		  tenemos por tanto un cubrebocas listo para ser empacado.
+% Nuestra meta es empacar 3 cuberbocas pero, naturalmente, se pueden
+% producir tanto como se requieran cambiando algunos valores.
+
+fluents:
+	% Tengo tanto de.
+	tengo (O, Can) requires object(O), #int(Can).
+actions:
+	% Acciones a realizar en el plan
+	cortar(C) requires #int(C).
+	sellar(S) requires #int(S).
+	colocar_elastico(E) requires #int(E).
+	empacar(Em) requires #int(Em).
+always:
+	% Aquí cortamos y tenemos 4 estados asociados a esta acción.
+	% 1)
+	caused tengo(tela_sin_cortar, NuevaCan) if AntCan = C + NuevaCan
+	after cortar(C), tengo(tela_sin_cortar, AntCan).
+	% 2)
+	caused -tengo(tela_sin_cortar, Can) after cortar(C), 
+	tengo(tela_sin_cortar, Can).
+	% 3)
+	caused tengo(tela_cortada_lista_para_sellarse, NuevaCan) if 
+	NuevaCan = C + AntCan after cortar(C), 
+	tengo(tela_cortada_lista_para_sellarse, AntCan).
+	% 4)
+	caused -tengo(tela_cortada_lista_para_sellarse, Can) after cortar(C),
+	tengo(tela_cortada_lista_para_sellarse, Can).
+	
+	% Acción cortar
+	executable cortar(1) if tengo(tela_sin_cortar, Can1), Can1 > 0,
+	tengo(tela_cortada_lista_para_sellarse, Can2), Can2 <= 3.
+	
+	% Sellamos y tenemos 4 estados asociados a esta acción.
+	% 1)
+	caused tengo(tela_sellada, NuevaCan) if NuevaCan = S + AntCan 
+	after sellar(S), tengo(tela_sellada, AntCan).
+	% 2)
+	caused -tengo(tela_sellada, Can) after sellar(S),
+	tengo(tela_sellada, Can).
+	% 3)
+	caused tengo(tela_cortada_lista_para_sellarse, NuevaCan) if 
+	AntCan = S + NuevaCan after sellar(S), 
+	tengo(tela_cortada_lista_para_sellarse, AntCan).
+	% 4)
+	caused -tengo(tela_cortada_lista_para_sellarse, Can) after sellar(S),
+	tengo(tela_cortada_lista_para_sellarse, Can).
+	
+	% Acción sellar
+	executable sellar(1) if tengo(tela_cortada_lista_para_sellarse, Can1), 
+	Can1 > 0, Can1 <= 3, tengo(tela_sellada, Can2), Can2 <= 3.
+
+	% Aquí colocamos el eslástico y por consiguiente tenemos 8 estados
+	% 1)
+	caused tengo(tela_sellada, NuevaCan) if AntCan = E + NuevaCan after 
+	colocar_elastico(E), tengo(tela_sellada, AntCan).
+	% 2)
+	caused -tengo(tela_sellada, Can) after colocar_elastico(E), 
+	tengo(tela_sellada, Can).
+	% 3)
+	caused tengo(cubrebocas, NuevaCan) if NuevaCan = E + AntCan after
+	colocar_elastico(E), tengo(cubrebocas, AntCan).
+	% 4)
+	caused -tengo(cubrebocas, Can) after colocar_elastico(E),
+	tengo(cubrebocas, Can).
+	% 5)
+	caused tengo(elastico_colocado, NuevaCan) if NuevaCan = E + AntCan after
+	colocar_elastico(E), tengo(elastico_colocado, AntCan).
+	% 6)
+	caused -tengo(elastico_colocado, Can) after colocar_elastico(E),
+	tengo(elastico_colocado, Can).
+	% 7)
+	caused tengo(elasticos, NuevaCan) if AntCan = E + NuevaCan after 
+	colocar_elastico(E), tengo(elasticos, AntCan).
+	% 8)
+	caused -tengo(elasticos, Can) after colocar_elastico(E), tengo(elasticos, Can).
+	
+	% Acción colocar elástico
+	executable colocar_elastico(1) if tengo(tela_sellada, Can), Can > 0, Can <= 3,
+	tengo(elasticos, Can2), Can2 > 0.
+
+	% Y, finalmente, empacamos.
+	caused tengo(cubrebocas, NuevaCan) if AntCan = Em + NuevaCan after empacar(Em),
+	tengo(cubrebocas, AntCan).
+	caused -tengo(cubrebocas, Can) after empacar(Em), tengo(cubrebocas, Can).
+	caused tengo(cubrebocas_empacado, NuevaCan) if NuevaCan = Em + AntCan after
+	empacar(Em), tengo(cubrebocas_empacado, AntCan).
+	caused -tengo(cubrebocas_empacado, Can) after empacar(Em), 
+	tengo(cubrebocas_empacado, Can).
+	
+	executable empacar(1) if tengo(cubrebocas, Can), Can > 0, Can <= 3.
+	
+	% Estados inerciales NO concurrentes.
+	% Para hacerlos concurrentes, basta con inhabilitar la instrucción noConcurrency.
+	inertial tengo(tela_sellada, Can).
+	inertial tengo(elasticos, Can).
+	inertial tengo(cubrebocas, Can).
+	inertial tengo(elastico_colocado, Can).
+	inertial tengo(cubrebocas_empacado, Can).
+	noConcurrency.
+	
+	
+initially:
+	% Estados iniciales
+	tengo(tela_sin_cortar, 3).
+	tengo(tela_cortada_lista_para_sellarse, 0).
+	tengo(tela_sellada, 0).
+	tengo(cubrebocas, 0).
+	tengo(elasticos, 3).
+	tengo(elastico_colocado, 0).
+	tengo(cubrebocas_empacado, 0).
+	
+goal:
+	% Meta con 12 pasos no concurrentes, 6 sí concurrentes.
+	tengo(cubrebocas_empacado, 3)? (12)
